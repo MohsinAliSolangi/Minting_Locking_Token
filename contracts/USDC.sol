@@ -9,7 +9,8 @@ import "hardhat/console.sol";
 
 contract USDC is ERC20, ERC20Burnable, Pausable, Ownable {
     constructor() ERC20("USDC", "DS") {}
-
+    
+    uint256 percentage = 3000;
     mapping (address=>pool) public locked;
     
     struct pool {
@@ -25,14 +26,22 @@ contract USDC is ERC20, ERC20Burnable, Pausable, Ownable {
     function unpause() public onlyOwner {
         _unpause();
     }
+   
+    function percentageAmount(uint256 amount) private view returns (uint256) {
+        return (amount / 10000) * percentage;
+    }
+
 
     function mint(uint256 amount) public onlyOwner {
     
-        require(amount>=10,"please mint gratherthan 1 ether" );
-        _mint(msg.sender,amount);
-        uint256 pAmount = amount % 70;
-        transfer(address(this), pAmount);
-        locked[msg.sender]=pool(block.timestamp, block.timestamp+600, pAmount);
+        require(amount>=0,"please mint gratherthan 0 ether" );
+        
+        uint256 thirty = percentageAmount(amount*10**18);
+        uint256 seventy = amount*10**18- thirty;
+        _mint(msg.sender,thirty);
+        _mint(address(this),seventy);
+        uint256 temp = locked[msg.sender].Poolamount;
+        locked[msg.sender]=pool(block.timestamp, block.timestamp+600, temp + seventy);
     }
 
     function _beforeTokenTransfer(address from, address to, uint256 amount)
@@ -44,10 +53,29 @@ contract USDC is ERC20, ERC20Burnable, Pausable, Ownable {
     }
 
     function withdrawToken() external {
-        require(locked[msg.sender].Poolamount>0,"you are not add amount");
-        require(block.timestamp>locked[msg.sender].endTime,"Some time is remain");
+        require(locked[msg.sender].Poolamount>0,"You Did not do menting");
+        require(block.timestamp>locked[msg.sender].endTime,"please wait for 10 mints then you can withdraw");
         IERC20 tokenContract = IERC20(address(this));
-        tokenContract.transfer(msg.sender, locked[msg.sender].Poolamount);
+        uint256 amountToBETransfer = locked[msg.sender].Poolamount;
+        locked[msg.sender].Poolamount = 0;
+        tokenContract.transfer(msg.sender, amountToBETransfer);
+
     }
+
+    function cheekLockBalance()public view returns(uint256){
+        return (locked[msg.sender].Poolamount);
+    }
+
+    function cheekRemainTime() public view returns(uint256){
+        uint256 time= locked[msg.sender].endTime - block.timestamp;
+        if(time < 0)
+        {
+            return 0;
+        }
+
+        else
+        {
+            return time;
+        }
 
 }
